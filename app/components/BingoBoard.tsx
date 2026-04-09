@@ -50,8 +50,8 @@ function decodeJwtPayload<T = any>(token?: string | null): T | null {
 
 /* -------------------- Component -------------------- */
 const RELOAD_FLAG = "bingo_initial_reload_done";
-const ROOMS_WS = "wss://henb.teshie.dev";
-const WS_BASE = "wss://henb.teshie.dev";
+const ROOMS_WS = "wss://topb.tabia.site";
+const WS_BASE = "wss://topb.tabia.site";
 
 const BingoBoard: React.FC = () => {
   const router = useRouter();
@@ -292,7 +292,7 @@ const BingoBoard: React.FC = () => {
         </div>
       </div>
 
-      <p className="mt-4 text-sm">© Dire Bingo 2025</p>
+      <p className="mt-4 text-sm">© Top Bingo 2025</p>
     </div>
   );
 };

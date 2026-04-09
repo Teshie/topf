@@ -246,7 +246,7 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
         </button>
       </div>
 
-      <p className="mt-4 text-sm">© Dire Bingo 2024</p>
+      <p className="mt-4 text-sm">© Top Bingo 2024</p>
     </div>
   );
 };
