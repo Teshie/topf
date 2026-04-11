@@ -156,143 +156,184 @@ const BingoBoard: React.FC = () => {
     window.location.reload();
   };
 
+  const balanceDisplay =
+    Number.isFinite(balance) && balance > 0
+      ? balance.toLocaleString(undefined, {
+          maximumFractionDigits: 2,
+        })
+      : String(balance);
+
   return (
-    <div className="text-sm flex flex-col items-center min-h-screen notify font-mono">
-      <div className="w-full text-white rounded-b-lg shadow-lg p-2">
-        {/* Header: balance + refresh */}
-        <div className="flex justify-between items-center p-1">
-          <div className="balance p-1 mb-2 flex rounded items-center">
+    <div
+      className="flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#C3A9D8] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] font-sans text-sm text-[#312E81]"
+    >
+      <header className="mx-auto mb-2 w-full max-w-lg shrink-0">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+          <div className="flex min-h-[2.65rem] flex-col justify-center gap-0 rounded-md border border-[#B39BC9] bg-white px-2 py-1.5 shadow-sm sm:min-h-[2.95rem] sm:px-2.5">
+            <span className="text-[9px] font-semibold leading-tight text-[#312E81] sm:text-[10px]">
+              Balance
+            </span>
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-4 w-4 shrink-0 text-[#EA580C]"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
+                />
+              </svg>
+              <span className="truncate text-xs font-bold tabular-nums text-[#312E81] sm:text-sm">
+                {balanceDisplay} ETB
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="flex min-h-[2.65rem] items-center justify-center gap-2 rounded-md border border-[#B39BC9] bg-white px-2 py-1.5 text-xs font-bold text-[#312E81] shadow-sm transition-opacity active:opacity-90 sm:min-h-[2.95rem] sm:text-sm"
+            title="Refresh room list"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth="1.5"
+              strokeWidth={1.5}
               stroke="currentColor"
-              className="h-6 w-8 text-white"
+              className="h-4 w-4 text-[#EA580C]"
+              aria-hidden
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7m0 0L19.5 15.3m-3.182-3.184L19.5 15.3"
               />
             </svg>
-            <p className="font-bold">{balance} ETB</p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="current p-1 mb-2 flex rounded items-center font-bold"
-            title="Refresh"
-          >
             Refresh
           </button>
         </div>
+      </header>
 
-        {/* Table header */}
-        <div className="bg-orange-600 mb-1 p-2 rounded-t-lg shadow-md grid grid-cols-5 text-center items-center">
-          <div className="font-semibold">Stake</div>
-          <div className="font-semibold">Active</div>
-          <div className="font-semibold">Players</div>
-          <div className="font-semibold">Derash</div>
-          <div className="font-semibold">Play</div>
-        </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col px-0.5">
+        <section
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/80 bg-white/15 shadow-sm backdrop-blur-[1px]"
+          aria-label="Rooms"
+        >
+          <div className="grid grid-cols-5 items-center gap-0.5 bg-[#EA580C] px-1 py-2.5 text-center text-xs font-semibold text-white shadow-sm sm:gap-1 sm:px-2 sm:py-3 sm:text-sm">
+            <div>Stake</div>
+            <div>Active</div>
+            <div>Players</div>
+            <div>Derash</div>
+            <div>Play</div>
+          </div>
 
-        {/* Loading indicator for rooms */}
-        <div className="grid place-items-center">
-          {rooms.length < 1 && (
-            <div className="loader flex justify-center items-center" />
-          )}
-        </div>
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5 sm:p-2">
+            {rooms.length < 1 && (
+              <div className="flex justify-center py-10">
+                <div className="loader" aria-hidden />
+              </div>
+            )}
 
-        {/* Rooms list */}
-        <div className="grid grid-cols-1 gap-4">
-          {[...rooms]
-            .sort((a, b) => a.stake_amount - b.stake_amount)
-            .filter((r) => Number(r.stake_amount) !== 100) // hide 100 ETB stake
-            .map((item) => {
-              const remaining = remainingSeconds(item.start_time);
-              const lowBalance = item.stake_amount > (balance || 0);
-              const isPlaying = item.status === "playing";
+            <div className="flex flex-col gap-2.5 sm:gap-3">
+              {[...rooms]
+                .sort((a, b) => a.stake_amount - b.stake_amount)
+                .filter((r) => Number(r.stake_amount) !== 100)
+                .map((item) => {
+                  const remaining = remainingSeconds(item.start_time);
+                  const lowBalance = item.stake_amount > (balance || 0);
+                  const isPlaying = item.status === "playing";
 
-              // Active column label
-              let statusLabel = "";
-              if (lowBalance) statusLabel = "Low balance";
-              else if (remaining > 0) statusLabel = `${remaining}s`;
-              else if (item.status === "claimed") statusLabel = "Finished";
-              else if (
-                item.status === "pending" ||
-                item.status === "about_to_start"
-              )
-                statusLabel = "Ready";
-              else statusLabel = item.status || "idle";
+                  let statusLabel = "";
+                  if (lowBalance) statusLabel = "Low balance";
+                  else if (remaining > 0) statusLabel = `${remaining}s`;
+                  else if (item.status === "claimed") statusLabel = "Finished";
+                  else if (
+                    item.status === "pending" ||
+                    item.status === "about_to_start"
+                  )
+                    statusLabel = "Ready";
+                  else statusLabel = item.status || "idle";
 
-              const canPlay =
-                !lowBalance &&
-                (item.status === "pending" || item.status === "about_to_start");
+                  return (
+                    <div key={item.room_id} className="relative pt-1">
+                      {isPlaying && (
+                        <div className="absolute left-1/2 top-0 z-10 flex -translate-x-1/2 -translate-y-1 items-center gap-1 rounded-full border border-[#B39BC9] bg-white px-2 py-0.5 shadow-sm">
+                          <span className="text-xs font-bold text-[#EA580C] sm:text-sm">
+                            Active game
+                          </span>
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#EA580C] opacity-60" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#EA580C]" />
+                          </span>
+                        </div>
+                      )}
 
-              return (
-                <div key={item.room_id} className="relative">
-                  {/* “Active game” banner */}
-                  {isPlaying && (
-                    <div className="absolute right-1/2 border border-green-600 rounded-lg bg-green-500 -top-1 transform z-10 flex justify-center items-center">
-                      <div className="bg-red-500 text-white text-xs font-bold px-2 rounded-lg shadow-md flex items-center">
-                        Active game
+                      <div className="grid grid-cols-5 items-center gap-0.5 rounded-lg border border-[#B39BC9] bg-white px-1 py-3 text-center text-xs shadow-sm sm:gap-1 sm:px-2 sm:py-3.5 sm:text-sm md:text-base">
+                        <div className="font-bold tabular-nums text-[#312E81]">
+                          {item.stake_amount} ETB
+                        </div>
+                        <div
+                          className={
+                            isPlaying
+                              ? "font-medium text-[#312E81]/55"
+                              : remaining > 0
+                                ? "font-bold tabular-nums text-[#EA580C]"
+                                : lowBalance
+                                  ? "font-medium text-red-700"
+                                  : "font-medium text-[#312E81]"
+                          }
+                        >
+                          {statusLabel}
+                        </div>
+                        <div className="tabular-nums text-[#312E81]">
+                          {item.number_of_players}
+                        </div>
+                        <div className="tabular-nums text-[#312E81]">
+                          {(item.possible_win_cents / 100 || 0).toLocaleString()}{" "}
+                          ETB
+                        </div>
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            disabled={isPlaying || lowBalance}
+                            onClick={() => {
+                              const token = localStorage.getItem("token") || "";
+                              const wsUrl = `${WS_BASE}/ws/room/${encodeURIComponent(
+                                item.room_id
+                              )}?token=${encodeURIComponent(token)}`;
+
+                              setSockUrl(wsUrl);
+                              router.push(
+                                `/board?room=${encodeURIComponent(item.room_id)}`
+                              );
+                            }}
+                            className={`rounded-md px-2.5 py-1.5 text-xs font-bold shadow-sm sm:px-3.5 sm:py-2 sm:text-sm ${
+                              isPlaying || lowBalance
+                                ? "cursor-not-allowed bg-[#EDE7F3] text-gray-500 opacity-90"
+                                : "bg-[#FF9F43] text-gray-900 ring-1 ring-black/10 active:opacity-90"
+                            }`}
+                          >
+                            {isPlaying ? "Playing" : "Play"}
+                          </button>
+                        </div>
                       </div>
-                      <p className="relative flex h-3 w-3 ml-1">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-600 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-                      </p>
                     </div>
-                  )}
-
-                  <div className="current p-3 rounded-lg shadow-md grid grid-cols-5 text-center items-center">
-                    {/* Stake */}
-                    <div className="font-bold">{item.stake_amount} ETB</div>
-
-                    {/* Active / countdown / status */}
-                    <div
-                      className={`${
-                        isPlaying ? "text-gray-400" : "text-white"
-                      }`}
-                    >
-                      {statusLabel}
-                    </div>
-
-                    {/* Players */}
-                    <div>{item.number_of_players}</div>
-
-                    {/* Derash / possible win */}
-                    <div>{(item.possible_win_cents / 100 || 0) + " ETB"}</div>
-
-                    {/* Play button */}
-                    <button
-                      disabled={isPlaying || lowBalance}
-                      onClick={() => {
-                        const token = localStorage.getItem("token") || "";
-                        const wsUrl = `${WS_BASE}/ws/room/${encodeURIComponent(
-                          item.room_id
-                        )}?token=${encodeURIComponent(token)}`;
-
-                        setSockUrl(wsUrl);
-                        router.push(
-                          `/board?room=${encodeURIComponent(item.room_id)}`
-                        );
-                      }}
-                      className={`${
-                        isPlaying || lowBalance
-                          ? "bg-yellow-200 opacity-60 cursor-not-allowed"
-                          : "bg-yellow-500"
-                      } text-purple-900 px-4 py-1 rounded-lg font-semibold`}
-                    >
-                      Play
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
+                  );
+                })}
+            </div>
+          </div>
+        </section>
       </div>
 
-      <p className="mt-4 text-sm">© Top Bingo 2025</p>
+      <p className="shrink-0 py-1 text-center text-[10px] text-white/85 sm:text-xs">
+        © Top Bingo 2025
+      </p>
     </div>
   );
 };

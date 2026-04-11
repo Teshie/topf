@@ -31,6 +31,11 @@
   }
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   color: white;
   background: linear-gradient(
@@ -39,12 +44,68 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Hide scrollbar but keep overflow scroll (e.g. board picker) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Latest ball on cartela — orange ring pulse (PlayerBoard) */
+@keyframes bingo-call-ripple {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(249, 115, 22, 0.55),
+      0 0 0 0 rgba(255, 255, 255, 0.45);
+  }
+  65% {
+    box-shadow:
+      0 0 0 14px rgba(249, 115, 22, 0),
+      0 0 0 8px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.bingo-call-ripple {
+  position: relative;
+  z-index: 2;
+  animation: bingo-call-ripple 1s ease-out 0s 3;
+}
+
+/* Latest call cell on B–I–N–G–O strip (BingoNumbers) */
+@keyframes bingo-grid-current-blink {
+  0%,
+  100% {
+    background-color: #b91c1c;
+  }
+  50% {
+    background-color: #ef4444;
+  }
+}
+
+.bingo-grid-current-blink {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
+  animation: bingo-grid-current-blink 0.75s ease-in-out infinite;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.4),
+    0 0 0 1px rgb(255 255 255 / 0.65);
 }
 .text-four{
   background-color: #F3F7EC;
@@ -60,7 +121,7 @@ body {
   color: white;
 }
 .main{
-  background-color: #496989;
+  background-color: #BEB4D6;
 }
 .board{
   background-color: #A1D6B2;

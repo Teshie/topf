@@ -150,6 +150,42 @@ function safeParse<T = any>(s: string | null): T | null {
   }
 }
 
+/** Match lobby `/me` semantics: numeric balance or birr strings, optionally split wallets */
+function parseNumberLoose(v: unknown): number {
+  if (v == null || v === "") return 0;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v).replace(/,/g, ""));
+  return Number.isNaN(n) ? 0 : n;
+}
+
+/** Read wallet total from room_state `room` object or REST room DTO */
+function extractWalletBalanceFromRoomPayload(
+  r: Record<string, unknown> | undefined,
+  msg: Record<string, unknown> | undefined
+): number | undefined {
+  if (!r && !msg) return undefined;
+  const room = r ?? {};
+  const top = msg ?? {};
+
+  const hasBirrPair =
+    room.balance_birr != null ||
+    room.main_balance_birr != null ||
+    room.main_balance != null;
+
+  if (hasBirrPair) {
+    const a = parseNumberLoose(room.balance_birr ?? room.balance);
+    const b = parseNumberLoose(
+      room.main_balance_birr ?? room.main_balance
+    );
+    return a + b;
+  }
+
+  const raw = room.balance ?? top.balance;
+  if (raw == null || raw === "") return undefined;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  return parseNumberLoose(raw);
+}
+
 function displayName(u?: WinnerUser): string {
   if (!u) return "Player";
   const first = (u.first_name || "").trim();
@@ -296,6 +332,14 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
       setSelectedBoardNumbers(mapped.selected_board_numbers || []);
       setStakeAmount(mapped.stake_amount);
 
+      {
+        const wallet = extractWalletBalanceFromRoomPayload(
+          dto as Record<string, unknown>,
+          undefined
+        );
+        if (wallet !== undefined) setBalance(wallet);
+      }
+
       if (dto.start_time) {
         const to = new Date(dto.start_time).getTime();
         const now = Date.now();
@@ -376,7 +420,10 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
           setStakeAmount(mapped.stake_amount);
 
           if (typeof r.time_left === "number") setTimeLeft(r.time_left);
-          if (typeof r.balance === "number") setBalance(r.balance);
+          {
+            const wallet = extractWalletBalanceFromRoomPayload(r, msg);
+            if (wallet !== undefined) setBalance(wallet);
+          }
           if (typeof r.username === "string") setUsername(r.username);
 
           // Handle both boards from server
