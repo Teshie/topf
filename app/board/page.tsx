@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCounter } from "../store/store";
 import toast from "react-hot-toast";
 import { api } from "../components/api";
+import PlayerBoard from "../components/PlayerBoard";
 
 /** `/me` payload — same wallet fields as the lobby screen */
 interface MePayload {
@@ -348,6 +349,15 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
       ? String(secondsLeft)
       : "—";
 
+  /** Cartela numbers to show as small BINGO previews (local picks, else WS slots). */
+  const previewBoardIds = useMemo(() => {
+    if (selectedBoards.length > 0) return selectedBoards;
+    const ids: number[] = [];
+    if (userBoard != null && userBoard >= 1) ids.push(userBoard);
+    if (userBoard2 != null && userBoard2 >= 1) ids.push(userBoard2);
+    return Array.from(new Set(ids));
+  }, [selectedBoards, userBoard, userBoard2]);
+
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-[#C3A9D8] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] font-sans">
       <header className="mx-auto mb-1 w-full max-w-lg shrink-0">
@@ -380,14 +390,14 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
         </div>
       </header>
 
-      {/* Single grey box; inner area scrolls (scrollbar hidden). */}
-      <div className="mx-auto mt-2 flex min-h-0 w-full max-w-lg flex-1 flex-col px-1">
+      {/* Cartelas: exactly half the viewport; only this region scrolls. */}
+      <div className="mx-auto mt-2 flex h-[50dvh] min-h-0 w-full max-w-lg shrink-0 flex-col px-1">
         <section
-          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/80 sm:rounded-xl"
+          className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/80 sm:rounded-xl"
           aria-label="Cartela numbers"
         >
           <div
-            className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch] sm:p-2"
+            className="no-scrollbar h-full min-h-0 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch] sm:p-2"
           >
             <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
               {boards.map((_, i) => renderCartelaButton(i + 1))}
@@ -395,6 +405,24 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
           </div>
         </section>
       </div>
+
+      {previewBoardIds.length > 0 && (
+        <div
+          className="mx-auto mt-2 flex w-full max-w-lg shrink-0 flex-wrap items-start justify-center gap-1.5 px-1"
+          aria-label="Selected cartela previews"
+        >
+          {previewBoardIds.map((id) => (
+            <PlayerBoard
+              key={id}
+              userBoard={id}
+              variant="compact"
+              readOnly
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="min-h-0 flex-1" aria-hidden />
 
       <p className="shrink-0 py-1 text-center text-[10px] text-white/85 sm:text-xs">
         © Top Bingo 2024
