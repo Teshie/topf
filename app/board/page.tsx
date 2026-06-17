@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import boards from "../data/board.json";
 import { useRouter } from "next/navigation";
 import { useCounter } from "../store/store";
@@ -23,76 +23,6 @@ function parseNumberLoose(v: unknown): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-function selectionsEqual(a: number[], b: number[]) {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
-}
-
-function computeNextSelection(prev: number[], boardNumber: number): number[] {
-  if (prev.includes(boardNumber)) {
-    if (prev.length === 1) return [];
-    if (prev.length === 2) {
-      const idx = prev.indexOf(boardNumber);
-      if (idx === 0) return [prev[1]];
-      return [prev[0]];
-    }
-    return prev;
-  }
-  if (prev.length === 0) return [boardNumber];
-  if (prev.length === 1) return [prev[0], boardNumber];
-  /* Already have two distinct boards — do not swap in a third; user must deselect first. */
-  return prev;
-}
-
-type BoardApi = {
-  clearBoard: (slot: 1 | 2) => void;
-  resetPlayerBoards: () => void;
-  setBoardNumber: (n: number, slot?: 1 | 2) => void;
-  setPlayerBoard: (slot?: 1 | 2, board?: number) => void;
-};
-
-function syncBoardsToServer(
-  prev: number[],
-  next: number[],
-  boardNumber: number,
-  api: BoardApi
-) {
-  if (selectionsEqual(prev, next)) return;
-
-  const wasSelected = prev.includes(boardNumber);
-  const nowSelected = next.includes(boardNumber);
-
-  if (wasSelected && !nowSelected) {
-    if (prev.length === 1) {
-      api.clearBoard(1);
-      return;
-    }
-    if (prev.length === 2) {
-      const idx = prev.indexOf(boardNumber);
-      if (idx === 0) {
-        const keep = next[0];
-        api.resetPlayerBoards();
-        api.setBoardNumber(keep, 1);
-        api.setPlayerBoard(1, keep);
-        return;
-      }
-      api.clearBoard(2);
-      return;
-    }
-  }
-
-  if (!wasSelected && nowSelected) {
-    if (next.length === 1) {
-      api.setBoardNumber(boardNumber, 1);
-      api.setPlayerBoard(1, boardNumber);
-      return;
-    }
-    if (next.length === 2 && next[1] === boardNumber) {
-      api.setBoardNumber(boardNumber, 2);
-      api.setPlayerBoard(2, boardNumber);
-    }
-  }
-}
-
 interface BingoBoardProps {
   wallet?: number;
   activeGame?: number;
@@ -106,20 +36,13 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
     winner,
     balance,
     roomHeaderData,
-    userBoard,
-    userBoard2,
     setPlayerBoard,
     resetPlayerBoards,
     setBoardNumber,
-    clearBoard,
   } = useCounter();
 
-  // local selection (up to 2 boards), kept in sync with WebSocket via syncBoardsToServer
+  // local selection (up to 2 boards); sent to server only on Start Game
   const [selectedBoards, setSelectedBoards] = useState<number[]>([]);
-  const selectedBoardsRef = useRef<number[]>([]);
-  useEffect(() => {
-    selectedBoardsRef.current = selectedBoards;
-  }, [selectedBoards]);
 
   const [meProfile, setMeProfile] = useState<MePayload | null>(null);
 
@@ -165,6 +88,54 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
     Number.isFinite(effectiveWalletBalance) &&
     Number(stakeAmount ?? 0) > effectiveWalletBalance;
 
+  const toggleBoardSelection = (boardNumber: number) => {
+    if (playing) {
+      toast.error("Cannot change boards during play.");
+      return;
+    }
+
+    setSelectedBoards((prev) => {
+      if (prev.includes(boardNumber)) {
+        return prev.filter((bn) => bn !== boardNumber);
+      }
+      if (prev.length < 2) {
+        return [...prev, boardNumber];
+      }
+      return [prev[0], boardNumber];
+    });
+  };
+
+  const handleStartGameClick = () => {
+    if (cantPlay) {
+      toast.error("Insufficient balance for this stake.");
+      return;
+    }
+
+    const hasTakenBoard = selectedBoards.some((board) =>
+      roomHeaderData?.selected_board_numbers?.includes(board)
+    );
+
+    if (hasTakenBoard) {
+      toast.error("One of the selected boards is already taken.");
+      return;
+    }
+
+    if (selectedBoards.length === 0) {
+      toast.error("Please select at least one board first.");
+      return;
+    }
+
+    resetPlayerBoards();
+
+    selectedBoards.forEach((board, index) => {
+      const slot = (index + 1) as 1 | 2;
+      setBoardNumber(board, slot);
+      setPlayerBoard(slot, board);
+    });
+
+    router.push("/game");
+  };
+
   const futureTime = roomHeaderData?.start_time
     ? Date.parse(roomHeaderData.start_time)
     : 0;
@@ -188,72 +159,15 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
     return () => clearInterval(interval);
   }, [futureTime]);
 
-  const boardApi: BoardApi = {
-    clearBoard,
-    resetPlayerBoards,
-    setBoardNumber,
-    setPlayerBoard,
-  };
-
-  /** Select/deselect a board and immediately tell the server (set_board / set_board_2). */
-  const handleBoardClick = (boardNumber: number, isDisabled: boolean) => {
-    if (isDisabled) return;
-
-    if (cantPlay) {
-      toast.error("Insufficient balance for this stake.");
-      return;
-    }
-    if (playing) {
-      toast.error("Cannot change boards during play.");
-      return;
-    }
-
-    const prev = selectedBoardsRef.current;
-    const merged = new Set<number>();
-    prev.forEach((n) => merged.add(n));
-    if (userBoard != null && userBoard >= 1) merged.add(userBoard);
-    if (userBoard2 != null && userBoard2 >= 1) merged.add(userBoard2);
-    if (merged.size >= 2 && !merged.has(boardNumber)) {
-      toast.error("You already have two boards.");
-      return;
-    }
-
-    const next = computeNextSelection(prev, boardNumber);
-    if (selectionsEqual(prev, next)) return;
-
-    syncBoardsToServer(prev, next, boardNumber, boardApi);
-    selectedBoardsRef.current = next;
-    setSelectedBoards(next);
-  };
-
-  /** Auto-enter game when pre-game countdown shows 1s, or when the round is already playing. */
-  const autoGameRedirectRef = useRef(false);
-  useEffect(() => {
-    if (cantPlay || selectedBoards.length === 0) return;
-
-    const status = roomHeaderData?.status;
-    const goAtOne =
-      status === "about_to_start" && secondsLeft === 1;
-    const alreadyPlaying = status === "playing";
-
-    if (!(goAtOne || alreadyPlaying)) return;
-    if (autoGameRedirectRef.current) return;
-    autoGameRedirectRef.current = true;
-    router.push("/game");
-  }, [
-    roomHeaderData?.status,
-    secondsLeft,
-    selectedBoards.length,
-    cantPlay,
-    router,
-  ]);
-
-  // Optional: reload when a winner is announced
   useEffect(() => {
     if (winner) {
       window.location.reload();
     }
   }, [winner]);
+
+  const isWaiting =
+    !playing &&
+    !(roomHeaderData?.status === "about_to_start" && secondsLeft > 0);
 
   const renderCartelaButton = (boardNumber: number) => {
     const notPlaying = roomHeaderData?.status !== "playing";
@@ -261,65 +175,43 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
       notPlaying &&
       roomHeaderData?.selected_board_numbers?.includes(boardNumber);
 
-    const isMine =
-      selectedBoards.includes(boardNumber) ||
-      userBoard === boardNumber ||
-      userBoard2 === boardNumber;
+    const isSelectedByMe = selectedBoards.includes(boardNumber);
     const selectionIndex = selectedBoards.indexOf(boardNumber);
 
-    const mergedMine = new Set<number>();
-    selectedBoards.forEach((n) => mergedMine.add(n));
-    if (userBoard != null && userBoard >= 1) mergedMine.add(userBoard);
-    if (userBoard2 != null && userBoard2 >= 1) mergedMine.add(userBoard2);
-    const atMaxSelection =
-      mergedMine.size >= 2 && !mergedMine.has(boardNumber);
-
-    /* Selected cartelas are fixed — no second click to deselect. */
-    const isDisabled = Boolean(
-      (isOccupiedInRoom && !isMine) || atMaxSelection || isMine
-    );
+    const isDisabled = Boolean(isOccupiedInRoom && !isSelectedByMe);
 
     let cellClass =
       "relative flex aspect-square min-h-0 w-full min-w-0 items-center justify-center rounded-md border border-black/10 text-[11px] font-bold tabular-nums shadow-sm active:opacity-90 sm:text-xs md:text-sm ";
-    if (isOccupiedInRoom && !isMine) {
+    if (isOccupiedInRoom && !isSelectedByMe) {
       cellClass += "bg-[#FF9F43] text-black";
-    } else if (isMine) {
+    } else if (isSelectedByMe) {
       cellClass += "bg-green-600 text-white ring-1 ring-black/20";
     } else {
       cellClass += "bg-[#EDE7F3] text-gray-900";
     }
-    if (isDisabled)
-      cellClass += ` cursor-not-allowed${isMine ? "" : " opacity-80"}`;
+    if (isDisabled) cellClass += " cursor-not-allowed opacity-80";
 
     return (
       <button
         key={boardNumber}
         type="button"
-        onClick={() => handleBoardClick(boardNumber, isDisabled)}
+        onClick={() => {
+          if (!isDisabled) toggleBoardSelection(boardNumber);
+        }}
         className={cellClass}
         disabled={isDisabled}
         title={
           isDisabled
-            ? isOccupiedInRoom && !isMine
-              ? "Board already taken"
-              : isMine
-                ? selectionIndex >= 0
-                  ? `Selected as board ${selectionIndex + 1}`
-                  : "Your cartela"
-                : atMaxSelection
-                  ? "You already have two boards"
-                  : "Board already taken"
-            : "Select board"
+            ? "Board already taken"
+            : isSelectedByMe
+              ? `Selected as board ${selectionIndex + 1}`
+              : "Select board"
         }
       >
         {boardNumber}
-        {isMine && (
+        {isSelectedByMe && (
           <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/55 text-[8px] font-bold text-white sm:h-4 sm:w-4 sm:text-[9px]">
-            {selectionIndex >= 0
-              ? selectionIndex + 1
-              : userBoard === boardNumber
-                ? 1
-                : 2}
+            {selectionIndex + 1}
           </span>
         )}
       </button>
@@ -342,26 +234,15 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
       : "—";
   const stakeLine =
     stakeDisplay === "—" ? "—" : `${stakeDisplay} ETB`;
-  /** Seconds until start (from room `start_time`); 0 while the round is playing. */
   const countdownDisplay = playing
     ? "0"
     : secondsLeft > 0
       ? String(secondsLeft)
       : "—";
 
-  /** Cartela numbers to show as small BINGO previews (local picks, else WS slots). */
-  const previewBoardIds = useMemo(() => {
-    if (selectedBoards.length > 0) return selectedBoards;
-    const ids: number[] = [];
-    if (userBoard != null && userBoard >= 1) ids.push(userBoard);
-    if (userBoard2 != null && userBoard2 >= 1) ids.push(userBoard2);
-    return Array.from(new Set(ids));
-  }, [selectedBoards, userBoard, userBoard2]);
-
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-[#C3A9D8] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] font-sans">
       <header className="mx-auto mb-1 w-full max-w-lg shrink-0">
-        {/** Header tiles: ~59% of prior box scale (area feel); min-heights × 0.59 */}
         <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           <div
             className="flex min-h-[2.65rem] items-center justify-center rounded-md border border-[#B39BC9] bg-white px-0.5 py-1 shadow-sm sm:min-h-[2.95rem]"
@@ -390,15 +271,12 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
         </div>
       </header>
 
-      {/* Cartelas: exactly half the viewport; only this region scrolls. */}
       <div className="mx-auto mt-2 flex h-[50dvh] min-h-0 w-full max-w-lg shrink-0 flex-col px-1">
         <section
           className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/80 sm:rounded-xl"
           aria-label="Cartela numbers"
         >
-          <div
-            className="no-scrollbar h-full min-h-0 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch] sm:p-2"
-          >
+          <div className="no-scrollbar h-full min-h-0 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch] sm:p-2">
             <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
               {boards.map((_, i) => renderCartelaButton(i + 1))}
             </div>
@@ -406,12 +284,12 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
         </section>
       </div>
 
-      {previewBoardIds.length > 0 && (
+      {selectedBoards.length > 0 && (
         <div
           className="mx-auto mt-2 flex w-full max-w-lg shrink-0 flex-wrap items-start justify-center gap-1.5 px-1"
           aria-label="Selected cartela previews"
         >
-          {previewBoardIds.map((id) => (
+          {selectedBoards.map((id) => (
             <PlayerBoard
               key={id}
               userBoard={id}
@@ -421,6 +299,24 @@ const BingoBoard: React.FC<BingoBoardProps> = ({}) => {
           ))}
         </div>
       )}
+
+      <div className="mx-auto mt-2 flex w-full max-w-lg shrink-0 justify-between gap-3 px-1">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex-1 rounded-full bg-[#312E81] px-4 py-2.5 text-sm font-bold text-white shadow-sm active:opacity-90 sm:py-2"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          disabled={playing || selectedBoards.length === 0 || isWaiting}
+          onClick={handleStartGameClick}
+          className="flex-1 rounded-full bg-[#FF9F43] px-4 py-2.5 text-sm font-bold text-gray-900 shadow-sm ring-1 ring-black/10 active:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:py-2"
+        >
+          Start Game
+        </button>
+      </div>
 
       <div className="min-h-0 flex-1" aria-hidden />
 
